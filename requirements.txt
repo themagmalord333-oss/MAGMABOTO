@@ -1,0 +1,11 @@
+flask
+pyrogram
+tgcrypto
+requests
+aiohttp
+pymongo
+pyTelegramBotAPI
+yt-dlp
+bs4
+motor
+Pillow
