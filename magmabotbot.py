@@ -10,7 +10,7 @@ from pyrogram.errors import UserNotParticipant, ChatAdminRequired, UsernameNotOc
 # --- ⚙️ SYSTEM CONFIGURATION ⚙️ ---
 API_ID = 37314366
 API_HASH = "bd4c934697e7e91942ac911a5a287b46"
-BOT_TOKEN = "8501688715:AAGfwajpOazHdTNSXTLNV2fft1KMs0uVqtE"
+BOT_TOKEN = "8501688715:AAEgs35fziTuPM3ziwV1i7ZY9fRHnNH7g-0"
 
 # 👑 OWNER ID (Important for /term command)
 OWNER_ID = 8081343902 
