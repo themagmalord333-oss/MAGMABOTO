@@ -1,24 +1,8 @@
 import os
 import asyncio
+import json  # Added for JSON formatting
 from pyrogram import Client, filters, enums
 from pyrogram.errors import UserNotParticipant
-from flask import Flask
-from threading import Thread
-
-# --- FAKE WEB SERVER FOR RENDER (KEEP ALIVE) ---
-web_app = Flask(__name__)
-
-@web_app.route('/')
-def home():
-    return "⚡ ANYSNAP BOT IS RUNNING ON RENDER ⚡"
-
-def run_web():
-    port = int(os.environ.get("PORT", 8080))
-    web_app.run(host='0.0.0.0', port=port)
-
-def keep_alive():
-    t = Thread(target=run_web)
-    t.start()
 
 # --- CONFIGURATION ---
 API_ID = 37314366
@@ -149,27 +133,67 @@ async def process_request(client, message):
             await status_msg.edit("❌ **No Data Found**")
             return
 
-        # --- Branding ---
+        # --- JSON Conversion & Branding ---
         lines = raw_text.splitlines()
-        clean_lines = []
-        for line in lines:
-            if "@DuXxZx_info" not in line and "Designed & Powered" not in line and "Scanning Vehicle" not in line:
-                clean_lines.append(line)
         
-        main_body = "\n".join(clean_lines).strip()
-        final_output = f"{main_body}\n\n{NEW_FOOTER}"
+        # Dictionary convert karne ke liye structure banayenge
+        data_dict = {}
+        info_lines = []
 
-        if len(final_output) > 4000:
-            await message.reply_text(final_output[:4000])
-            await message.reply_text(final_output[4000:])
-        else:
-            await message.reply_text(final_output)
+        for line in lines:
+            clean_line = line.strip()
+            # Unwanted branding remove karein
+            if "@DuXxZx_info" in clean_line or "Designed & Powered" in clean_line or "Scanning Vehicle" in clean_line or not clean_line:
+                continue
             
+            # Key: Value parsing koshish karein
+            if ":" in clean_line:
+                try:
+                    parts = clean_line.split(":", 1)
+                    key = parts[0].strip().replace("*", "").replace("`", "")
+                    value = parts[1].strip().replace("*", "").replace("`", "")
+                    data_dict[key] = value
+                except:
+                    info_lines.append(clean_line)
+            else:
+                info_lines.append(clean_line)
+
+        # Agar kuch extra lines bachi hain toh unhe bhi add karein
+        if info_lines:
+            data_dict["Additional Info"] = info_lines
+        
+        # Footer add karein
+        data_dict["Credits"] = NEW_FOOTER
+
+        # JSON String Generate karein
+        json_output = json.dumps(data_dict, indent=4, ensure_ascii=False)
+        
+        # Final formatting code block mein
+        final_message_text = f"```json\n{json_output}\n```"
+
         await status_msg.delete()
+
+        # --- SENDING RESULT ---
+        sent_result_msg = None
+        if len(final_message_text) > 4000:
+            # Agar message bahut bada hai toh split karein (JSON format toot sakta hai but limit zaroori hai)
+            sent_result_msg = await message.reply_text(final_message_text[:4000])
+            await message.reply_text(final_message_text[4000:])
+        else:
+            sent_result_msg = await message.reply_text(final_message_text)
+            
+        # --- AUTO DELETE LOGIC (30 Seconds) ---
+        if sent_result_msg:
+            await asyncio.sleep(30)
+            try:
+                await sent_result_msg.delete()
+                # Optional: Ek chota notification ki delete ho gaya (uncomment if needed)
+                # await message.reply_text("🗑️ **Result automatically deleted for security.**", quote=True)
+            except Exception:
+                pass
 
     except Exception as e:
         await status_msg.edit(f"❌ **Error:** {str(e)}")
 
-print("🚀 Starting Web Server & Bot...")
-keep_alive()  # <--- Starts the Fake Web Server
+print("🚀 Secure ANYSNAP Bot is Live!")
 app.run()
