@@ -19,9 +19,7 @@ def home():
     return "⚡ ANYSNAP Bot is Running Successfully!"
 
 def run_web():
-    # Render assigns a port via the PORT environment variable
     port = int(os.environ.get("PORT", 8080))
-    # '0.0.0.0' is crucial for Render to detect the port
     web_app.run(host="0.0.0.0", port=port)
 
 def keep_alive():
@@ -33,7 +31,7 @@ def keep_alive():
 API_ID = 37314366
 API_HASH = "bd4c934697e7e91942ac911a5a287b46"
 
-# 🆕 UPDATED SESSION STRING (Jo aapne diya)
+# SESSION STRING
 SESSION_STRING = "BQI5Xz4AGxfBeV-3jaxgwyugowiDkIjvDhk8x3QhrEFBaJOdieKytrqqYVK_mpdNG2EiODrwjkyZBdEzICVyLsnlfYBfjJQ19dJJF4KnlWjHXWFrWUUnTNSQb7_HTCclpShBy5WF2vMpRcEKZxFkwgBBt30_LyA-Fb5hR0y-wM33oDvY6CB5-Ored-uQbU-srNHTwaxTOIcXp77aNANv5U6dHTmvvF8YtAX4U5JtakBZowSEUxgXk3axQlF4g44SSdKU4Sp_nCitcvzfxkrMCARl0r2_8iuJXUSS3jsx-V_AyjDWG7E8WTppwkf9BerFM-eV2iEq3AHK22sESU5W0QXYmHbUFgAAAAGc59H6AA"
 
 TARGET_BOT = "Random_insight69_bot"
@@ -102,7 +100,6 @@ async def show_dashboard(client, message):
 async def process_request(client, message):
     
     try:
-        # Check Force Sub
         if not await check_user_joined(client, message.from_user.id):
             return await message.reply_text(
                 "🚫 **Access Denied!**\n\n"
@@ -118,11 +115,10 @@ async def process_request(client, message):
 
         status_msg = await message.reply_text(f"🔍 **Searching via ANYSNAP...**")
         
-        # --- SEND REQUEST ---
         try:
             sent_req = await client.send_message(TARGET_BOT, message.text)
         except PeerIdInvalid:
-             await status_msg.edit("❌ **Error:** Target Bot ID invalid. Make sure the Userbot account has started @Random_insight69_bot.")
+             await status_msg.edit("❌ **Error:** Target Bot ID invalid. Userbot must start @Random_insight69_bot first.")
              return
         except Exception as e:
             await status_msg.edit(f"❌ **Request Error:** {e}")
@@ -130,7 +126,7 @@ async def process_request(client, message):
 
         target_response = None
         
-        # --- ZIDDI WAIT LOOP ---
+        # --- WAIT LOOP ---
         for attempt in range(15):
             await asyncio.sleep(2.5) 
             try:
@@ -141,7 +137,6 @@ async def process_request(client, message):
                     ignore_words = ["wait", "processing", "searching", "scanning", "generating", "loading", "checking"]
                     
                     if any(word in text_content for word in ignore_words):
-                        # Edit only if text is different to avoid API flood
                         if f"Attempt {attempt+1}" not in status_msg.text:
                             await status_msg.edit(f"⏳ **Fetching Data... (Attempt {attempt+1})**")
                         continue 
@@ -150,7 +145,6 @@ async def process_request(client, message):
                     break 
             except Exception as e:
                 logger.error(f"Error fetching history: {e}")
-                
             if target_response: break
         
         if not target_response:
@@ -174,37 +168,58 @@ async def process_request(client, message):
             await status_msg.edit("❌ **No Data Found**")
             return
 
-        # --- JSON Conversion & Branding ---
+        # --- ADVANCED JSON PARSING (Fix for Multiple Results) ---
         lines = raw_text.splitlines()
-        data_dict = {}
-        info_lines = []
-
+        
+        all_records = []      # List to hold all results
+        current_record = {}   # Dictionary for the current result being processed
+        
         for line in lines:
             clean_line = line.strip()
-            # Branding Removal
-            if "@DuXxZx_info" in clean_line or "Designed & Powered" in clean_line or "Scanning Vehicle" in clean_line or not clean_line:
-                continue
             
-            # Key-Value Logic
+            # Skip junk lines
+            if not clean_line or any(x in clean_line for x in ["@DuXxZx_info", "Designed & Powered", "Scanning Vehicle"]):
+                continue
+
+            # Check if this line is a Key: Value pair
             if ":" in clean_line:
                 try:
                     parts = clean_line.split(":", 1)
                     key = parts[0].strip().replace("*", "").replace("`", "")
                     value = parts[1].strip().replace("*", "").replace("`", "")
-                    data_dict[key] = value
+                    
+                    # LOGIC CHANGE: 
+                    # Agar key pehle se current_record me hai (jaise Name dobara aaya),
+                    # iska matlab naya record shuru ho gaya hai.
+                    if key in current_record:
+                        all_records.append(current_record) # Save old record
+                        current_record = {} # Start new record
+                    
+                    current_record[key] = value
                 except:
-                    info_lines.append(clean_line)
-            else:
-                info_lines.append(clean_line)
+                    # Formatting error, maybe ignore or add to separate list
+                    pass
+            elif "Record" in clean_line or "---" in clean_line:
+                 # Explicit separator detection (Backup logic)
+                 if current_record:
+                     all_records.append(current_record)
+                     current_record = {}
 
-        if info_lines:
-            data_dict["Additional Info"] = info_lines
-        
-        data_dict["Credits"] = NEW_FOOTER
+        # Add the last remaining record
+        if current_record:
+            all_records.append(current_record)
 
-        # JSON Output
-        json_output = json.dumps(data_dict, indent=4, ensure_ascii=False)
-        final_message_text = f"```json\n{json_output}\n```"
+        # Result Generation
+        if not all_records:
+            # Fallback agar parsing fail hui to raw text dikha dega JSON me
+            json_output = json.dumps({"Raw Data": lines}, indent=4, ensure_ascii=False)
+        else:
+            # Agar sirf ek result hai to list nahi, direct dict dikhaye (User preference)
+            # Ya user chahta hai hamesha list rahe? Safer is List.
+            json_output = json.dumps(all_records, indent=4, ensure_ascii=False)
+
+        # Formatting: JSON Code Block + Normal Text Footer
+        final_message_text = f"```json\n{json_output}\n```\n\n{NEW_FOOTER}"
 
         await status_msg.delete()
 
@@ -216,7 +231,7 @@ async def process_request(client, message):
         else:
             sent_result_msg = await message.reply_text(final_message_text)
             
-        # --- AUTO DELETE LOGIC (30 Seconds) ---
+        # --- AUTO DELETE (30s) ---
         if sent_result_msg:
             await asyncio.sleep(30)
             try:
@@ -230,10 +245,10 @@ async def process_request(client, message):
         except:
             pass
 
-# --- START SERVER & BOT SAFELY ---
+# --- START SERVER & BOT ---
 async def start_bot():
     print("🚀 Starting Web Server...")
-    keep_alive() # Start Flask first (Fake Website)
+    keep_alive() 
     print("🚀 Starting Pyrogram Client...")
     await app.start()
     print("✅ Bot is Online!")
