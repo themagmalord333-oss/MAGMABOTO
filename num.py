@@ -42,7 +42,7 @@ NEW_FOOTER = "⚡ Designed & Powered by @MAGMAxRICH"
 ALLOWED_GROUPS = [-1003387459132] 
 
 FSUB_CONFIG = [
-    {"username": "Anysnapupdate", "link": "https://t.me/Anysnapupdate"},
+    {_______},
     {"username": "Anysnapsupport", "link": "https://t.me/Anysnapsupport"}
 ]
 
