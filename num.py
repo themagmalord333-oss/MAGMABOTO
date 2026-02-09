@@ -2,6 +2,7 @@ import os
 import asyncio
 import json
 import logging
+import re
 from threading import Thread
 from flask import Flask
 from pyrogram import Client, filters, enums, idle
@@ -126,25 +127,42 @@ async def process_request(client, message):
 
         target_response = None
 
-        # --- WAIT LOOP ---
-        for attempt in range(15):
-            await asyncio.sleep(2.5) 
+        # --- FINAL FIXED WAIT LOOP ---
+        for attempt in range(25): 
+            await asyncio.sleep(2) 
             try:
                 async for log in client.get_chat_history(TARGET_BOT, limit=1):
                     if log.id == sent_req.id: continue
 
                     text_content = (log.text or log.caption or "").lower()
-                    ignore_words = ["wait", "processing", "searching", "scanning", "generating", "loading", "checking"]
+                    
+                    # 1. SUCCESS CHECK: Kya message me '{' bracket hai? (JSON Detection)
+                    # Yeh sabse important check hai. Agar yeh mil gaya, to loop tod do.
+                    if "{" in text_content or "success" in text_content or log.document:
+                        target_response = log
+                        break
+                    
+                    # 2. WAIT CHECK: Kya message me "wait" ya "looking" likha hai?
+                    # Agar haan, to continue karo (wait karo).
+                    ignore_words = [
+                        "wait", "processing", "searching", "scanning", 
+                        "generating", "loading", "checking", 
+                        "looking up"
+                    ]
 
                     if any(word in text_content for word in ignore_words):
                         if f"Attempt {attempt+1}" not in status_msg.text:
                             await status_msg.edit(f"⏳ **Fetching Data... (Attempt {attempt+1})**")
                         continue 
-
+                    
+                    # 3. OTHER: Agar na JSON hai, na Wait message hai (Maybe error text)
+                    # To ise hi result maan lo.
                     target_response = log
-                    break 
+                    break
+                    
             except Exception as e:
                 logger.error(f"Error fetching history: {e}")
+            
             if target_response: break
 
         if not target_response:
@@ -168,57 +186,57 @@ async def process_request(client, message):
             await status_msg.edit("❌ **No Data Found**")
             return
 
-        # --- ADVANCED JSON PARSING (Fix for Multiple Results) ---
-        lines = raw_text.splitlines()
+        # --- SMART JSON PARSER ---
+        all_records = []
+        try:
+            # 1. Try to parse as Clean JSON
+            # Remove Markdown code blocks if present
+            clean_json_text = raw_text.replace("```json", "").replace("```", "").strip()
+            
+            # Extract JSON part using Regex (Find content between first { and last })
+            json_match = re.search(r'\{.*\}', clean_json_text, re.DOTALL)
+            if json_match:
+                clean_json_text = json_match.group(0)
+            
+            data_obj = json.loads(clean_json_text)
+            
+            # Logic to handle specific structure: {"data": [{"results": [...]}]}
+            if "data" in data_obj and isinstance(data_obj["data"], list):
+                if "results" in data_obj["data"][0]:
+                    all_records = data_obj["data"][0]["results"]
+                else:
+                    all_records = data_obj["data"]
+            elif "results" in data_obj:
+                all_records = data_obj["results"]
+            else:
+                all_records = [data_obj] if isinstance(data_obj, dict) else data_obj
+                
+        except (json.JSONDecodeError, AttributeError):
+            # 2. Fallback: Line-by-Line Parsing (Old Method)
+            lines = raw_text.splitlines()
+            current_record = {}
+            for line in lines:
+                clean_line = line.strip()
+                if not clean_line or any(x in clean_line for x in ["@DuXxZx_info", "Designed & Powered", "Scanning Vehicle", "JSON", "```"]):
+                    continue
+                if ":" in clean_line:
+                    try:
+                        p = clean_line.split(":", 1)
+                        k, v = p[0].strip().strip('"'), p[1].strip().strip('",')
+                        if k in current_record:
+                            all_records.append(current_record)
+                            current_record = {}
+                        current_record[k] = v
+                    except: pass
+            if current_record: all_records.append(current_record)
 
-        all_records = []      # List to hold all results
-        current_record = {}   # Dictionary for the current result being processed
-
-        for line in lines:
-            clean_line = line.strip()
-
-            # Skip junk lines
-            if not clean_line or any(x in clean_line for x in ["@DuXxZx_info", "Designed & Powered", "Scanning Vehicle"]):
-                continue
-
-            # Check if this line is a Key: Value pair
-            if ":" in clean_line:
-                try:
-                    parts = clean_line.split(":", 1)
-                    key = parts[0].strip().replace("*", "").replace("`", "")
-                    value = parts[1].strip().replace("*", "").replace("`", "")
-
-                    # LOGIC CHANGE: 
-                    # Agar key pehle se current_record me hai (jaise Name dobara aaya),
-                    # iska matlab naya record shuru ho gaya hai.
-                    if key in current_record:
-                        all_records.append(current_record) # Save old record
-                        current_record = {} # Start new record
-
-                    current_record[key] = value
-                except:
-                    # Formatting error, maybe ignore or add to separate list
-                    pass
-            elif "Record" in clean_line or "---" in clean_line:
-                 # Explicit separator detection (Backup logic)
-                 if current_record:
-                     all_records.append(current_record)
-                     current_record = {}
-
-        # Add the last remaining record
-        if current_record:
-            all_records.append(current_record)
-
-        # Result Generation
-        if not all_records:
-            # Fallback agar parsing fail hui to raw text dikha dega JSON me
-            json_output = json.dumps({"Raw Data": lines}, indent=4, ensure_ascii=False)
-        else:
-            # Agar sirf ek result hai to list nahi, direct dict dikhaye (User preference)
-            # Ya user chahta hai hamesha list rahe? Safer is List.
+        # Output Generation
+        if all_records:
             json_output = json.dumps(all_records, indent=4, ensure_ascii=False)
+        else:
+            # If parsing failed completely, show raw text
+            json_output = raw_text
 
-        # Formatting: JSON Code Block + Normal Text Footer
         final_message_text = f"```json\n{json_output}\n```\n\n{NEW_FOOTER}"
 
         await status_msg.delete()
