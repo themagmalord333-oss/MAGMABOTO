@@ -1,7 +1,8 @@
-Import os
+import os
 import asyncio
 import json
 import logging
+import re
 from threading import Thread
 from flask import Flask
 from pyrogram import Client, filters, enums, idle
@@ -100,6 +101,7 @@ async def show_dashboard(client, message):
 async def process_request(client, message):
 
     try:
+        # 1. Permission Check
         if not await check_user_joined(client, message.from_user.id):
             return await message.reply_text(
                 "🚫 **Access Denied!**\n\n"
@@ -126,118 +128,128 @@ async def process_request(client, message):
 
         target_response = None
 
-        # --- WAIT LOOP ---
-        for attempt in range(15):
-            await asyncio.sleep(2.5) 
+        # --- SMART WAIT LOOP (Fix for Uploading/Files) ---
+        for attempt in range(30): 
+            await asyncio.sleep(2) 
             try:
                 async for log in client.get_chat_history(TARGET_BOT, limit=1):
                     if log.id == sent_req.id: continue
 
                     text_content = (log.text or log.caption or "").lower()
-                    ignore_words = ["wait", "processing", "searching", "scanning", "generating", "loading", "checking"]
+                    
+                    # 1. IGNORE LIST: Wait if bot is "uploading" or "searching"
+                    ignore_words = [
+                        "wait", "processing", "searching", "scanning", 
+                        "generating", "loading", "checking", 
+                        "looking up", "uploading", "sending file", 
+                        "attaching", "sending"
+                    ]
 
-                    if any(word in text_content for word in ignore_words):
+                    # Condition: Text mein ignore word hai AUR koi file attach nahi hai
+                    if any(word in text_content for word in ignore_words) and not log.document:
                         if f"Attempt {attempt+1}" not in status_msg.text:
                             await status_msg.edit(f"⏳ **Fetching Data... (Attempt {attempt+1})**")
                         continue 
-
+                    
+                    # 2. SUCCESS CHECK: File mil gayi YA Text mein '{' hai
+                    if log.document or "{" in text_content or "success" in text_content:
+                        target_response = log
+                        break
+                    
+                    # 3. Fallback: Agar normal text result hai
                     target_response = log
-                    break 
+                    break
+                    
             except Exception as e:
                 logger.error(f"Error fetching history: {e}")
+            
             if target_response: break
 
         if not target_response:
             await status_msg.edit("❌ **Timeout:** Target bot ne final result nahi diya.")
             return
 
-        # --- Data Handling ---
+        # --- DATA EXTRACTION (File Handling Added) ---
         raw_text = ""
+        
+        # Scenario A: Result is a FILE (Download -> Read -> Delete)
         if target_response.document:
-            await status_msg.edit("📂 **Downloading File...**")
-            file_path = await client.download_media(target_response)
-            with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
-                raw_text = f.read()
-            os.remove(file_path)
-        elif target_response.photo:
-            raw_text = target_response.caption or ""
+            await status_msg.edit("📂 **Downloading Result File...**")
+            try:
+                file_path = await client.download_media(target_response)
+                with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
+                    raw_text = f.read()
+                os.remove(file_path) # Cleanup
+            except Exception as e:
+                await status_msg.edit(f"❌ **File Error:** {e}")
+                return
+                
+        # Scenario B: Result is TEXT or CAPTION
         elif target_response.text:
             raw_text = target_response.text
+        elif target_response.caption:
+            raw_text = target_response.caption
 
-        if not raw_text or len(raw_text.strip()) < 5:
+        if not raw_text or len(raw_text.strip()) < 2:
             await status_msg.edit("❌ **No Data Found**")
             return
 
-        # --- ADVANCED JSON PARSING (Fix for Multiple Results) ---
-        lines = raw_text.splitlines()
+        # --- SMART JSON PARSING ---
+        final_output = raw_text # Fallback
+        
+        try:
+            # Clean Markdown code blocks
+            clean_text = raw_text.replace("```json", "").replace("```", "").strip()
+            
+            # Find JSON object
+            json_match = re.search(r'\{.*\}', clean_text, re.DOTALL)
+            
+            if json_match:
+                parsed_data = json.loads(json_match.group(0))
+                
+                # Extract 'results' from 'data' (Based on your screenshot)
+                results = []
+                if "data" in parsed_data:
+                    # Check if data is list or dict
+                    data_part = parsed_data["data"]
+                    if isinstance(data_part, list) and len(data_part) > 0:
+                        if "results" in data_part[0]:
+                            results = data_part[0]["results"]
+                        else:
+                            results = data_part
+                    elif isinstance(data_part, dict):
+                        if "results" in data_part:
+                            results = data_part["results"]
+                        else:
+                            results = [data_part]
+                elif "results" in parsed_data:
+                    results = parsed_data["results"]
+                else:
+                    results = parsed_data
+                
+                final_output = json.dumps(results, indent=4, ensure_ascii=False)
+        except Exception as e:
+            # If parsing fails, just show the raw text
+            logger.error(f"Parsing error: {e}")
+            pass
 
-        all_records = []      # List to hold all results
-        current_record = {}   # Dictionary for the current result being processed
-
-        for line in lines:
-            clean_line = line.strip()
-
-            # Skip junk lines
-            if not clean_line or any(x in clean_line for x in ["@DuXxZx_info", "Designed & Powered", "Scanning Vehicle"]):
-                continue
-
-            # Check if this line is a Key: Value pair
-            if ":" in clean_line:
-                try:
-                    parts = clean_line.split(":", 1)
-                    key = parts[0].strip().replace("*", "").replace("`", "")
-                    value = parts[1].strip().replace("*", "").replace("`", "")
-
-                    # LOGIC CHANGE: 
-                    # Agar key pehle se current_record me hai (jaise Name dobara aaya),
-                    # iska matlab naya record shuru ho gaya hai.
-                    if key in current_record:
-                        all_records.append(current_record) # Save old record
-                        current_record = {} # Start new record
-
-                    current_record[key] = value
-                except:
-                    # Formatting error, maybe ignore or add to separate list
-                    pass
-            elif "Record" in clean_line or "---" in clean_line:
-                 # Explicit separator detection (Backup logic)
-                 if current_record:
-                     all_records.append(current_record)
-                     current_record = {}
-
-        # Add the last remaining record
-        if current_record:
-            all_records.append(current_record)
-
-        # Result Generation
-        if not all_records:
-            # Fallback agar parsing fail hui to raw text dikha dega JSON me
-            json_output = json.dumps({"Raw Data": lines}, indent=4, ensure_ascii=False)
-        else:
-            # Agar sirf ek result hai to list nahi, direct dict dikhaye (User preference)
-            # Ya user chahta hai hamesha list rahe? Safer is List.
-            json_output = json.dumps(all_records, indent=4, ensure_ascii=False)
-
-        # Formatting: JSON Code Block + Normal Text Footer
-        final_message_text = f"```json\n{json_output}\n```\n\n{NEW_FOOTER}"
-
+        # --- SENDING RESULT (Chunking) ---
+        formatted_msg = f"```json\n{final_output}\n```\n\n{NEW_FOOTER}"
+        
         await status_msg.delete()
 
-        # --- SENDING RESULT ---
-        sent_result_msg = None
-        if len(final_message_text) > 4000:
-            sent_result_msg = await message.reply_text(final_message_text[:4000])
-            await message.reply_text(final_message_text[4000:])
+        # Split message if too long (>4000 chars)
+        if len(formatted_msg) > 4000:
+            chunks = [formatted_msg[i:i+4000] for i in range(0, len(formatted_msg), 4000)]
+            for chunk in chunks:
+                await message.reply_text(chunk)
+                await asyncio.sleep(1) 
         else:
-            sent_result_msg = await message.reply_text(final_message_text)
-
-        # --- AUTO DELETE (30s) ---
-        if sent_result_msg:
-            await asyncio.sleep(30)
-            try:
-                await sent_result_msg.delete()
-            except Exception:
-                pass
+            msg = await message.reply_text(formatted_msg)
+            # Auto delete logic
+            await asyncio.sleep(60)
+            try: await msg.delete()
+            except: pass
 
     except Exception as e:
         try:
@@ -258,8 +270,3 @@ async def start_bot():
 if __name__ == "__main__":
     loop = asyncio.get_event_loop()
     loop.run_until_complete(start_bot())
-
-
-
-
-
