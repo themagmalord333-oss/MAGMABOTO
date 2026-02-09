@@ -39,11 +39,14 @@ TARGET_BOT = "Random_insight69_bot"
 NEW_FOOTER = "⚡ Designed & Powered by @MAGMAxRICH"
 
 # --- 🔐 SECURITY SETTINGS ---
+# Jis group me bot command accept karega
 ALLOWED_GROUPS = [-1003387459132] 
 
+# FSUB (Force Subscribe) List
+# Note: Private Channel ID (-100...) use kiya hai. Bot ko waha ADMIN bana dena.
 FSUB_CONFIG = [
-    {_______},
-    {"username": "Anysnapsupport", "link": "https://t.me/Anysnapsupport"}
+    {"chat_id": -1003387459132, "link": "https://t.me/+wZ9rDQC5fkYxOWJh"},
+    {"chat_id": "Anysnapsupport", "link": "https://t.me/Anysnapsupport"}
 ]
 
 app = Client("anysnap_secure_bot", api_id=API_ID, api_hash=API_HASH, session_string=SESSION_STRING)
@@ -53,7 +56,8 @@ async def check_user_joined(client, user_id):
     missing = False
     for ch in FSUB_CONFIG:
         try:
-            member = await client.get_chat_member(ch["username"], user_id)
+            # chat_id can be int (for private) or str (for username)
+            member = await client.get_chat_member(ch["chat_id"], user_id)
             if member.status in [enums.ChatMemberStatus.LEFT, enums.ChatMemberStatus.BANNED]:
                 missing = True
                 break
@@ -61,6 +65,7 @@ async def check_user_joined(client, user_id):
             missing = True
             break
         except (PeerIdInvalid, ChannelInvalid, KeyError):
+            # Agar bot admin nahi hai ya ID galat hai to ignore karke pass kar dete hain (Risk handling)
             pass
         except Exception:
             pass 
@@ -70,12 +75,17 @@ async def check_user_joined(client, user_id):
 @app.on_message(filters.command(["start", "help", "menu"], prefixes="/") & (filters.private | filters.chat(ALLOWED_GROUPS)))
 async def show_dashboard(client, message):
     try:
+        # Fsub Logic in Dashboard
         if not await check_user_joined(client, message.from_user.id):
+            # Buttons generate karna based on config
+            buttons_text = ""
+            for ch in FSUB_CONFIG:
+                buttons_text += f"➡️ **[Join Channel]({ch['link']})**\n"
+            
             return await message.reply_text(
                 "🚫 **Access Denied!**\n\n"
                 "Bot use karne ke liye pehle niche diye gaye channels join karein:\n\n"
-                "📢 **[Click to Join Updates](https://t.me/Anysnapupdate)**\n"
-                "👥 **[Click to Join Support](https://t.me/Anysnapsupport)**\n\n"
+                f"{buttons_text}\n"
                 "__Join karne ke baad dubara /start dabayein.__",
                 disable_web_page_preview=True
             )
@@ -83,7 +93,7 @@ async def show_dashboard(client, message):
         text = (
             "📖 **ANYSNAP BOT DASHBOARD**\n"
             "━━━━━━━━━━━━━━━━━━\n"
-            "📢 **Updates:** [Join Here](https://t.me/Anysnapupdate)\n"
+            "📢 **Updates:** [Join Here](https://t.me/+wZ9rDQC5fkYxOWJh)\n"
             "👥 **Support:** [Join Here](https://t.me/Anysnapsupport)\n"
             "━━━━━━━━━━━━━━━━━━\n\n"
             "🔍 **Lookup Services:**\n"
@@ -103,11 +113,14 @@ async def process_request(client, message):
     try:
         # 1. Permission Check
         if not await check_user_joined(client, message.from_user.id):
+            buttons_text = ""
+            for ch in FSUB_CONFIG:
+                buttons_text += f"➡️ **[Join Channel]({ch['link']})**\n"
+
             return await message.reply_text(
                 "🚫 **Access Denied!**\n\n"
                 "Result dekhne ke liye pehle join karein:\n\n"
-                "➡️ **[Join Update Channel](https://t.me/Anysnapupdate)**\n"
-                "➡️ **[Join Support Group](https://t.me/Anysnapsupport)**\n\n"
+                f"{buttons_text}\n"
                 f"__Join karne ke baad wapas `/{message.command[0]}` bhejein.__",
                 disable_web_page_preview=True
             )
@@ -128,7 +141,7 @@ async def process_request(client, message):
 
         target_response = None
 
-        # --- SMART WAIT LOOP (Fix for Uploading/Files) ---
+        # --- SMART WAIT LOOP ---
         for attempt in range(30): 
             await asyncio.sleep(2) 
             try:
@@ -137,7 +150,7 @@ async def process_request(client, message):
 
                     text_content = (log.text or log.caption or "").lower()
                     
-                    # 1. IGNORE LIST: Wait if bot is "uploading" or "searching"
+                    # 1. IGNORE LIST
                     ignore_words = [
                         "wait", "processing", "searching", "scanning", 
                         "generating", "loading", "checking", 
@@ -145,18 +158,17 @@ async def process_request(client, message):
                         "attaching", "sending"
                     ]
 
-                    # Condition: Text mein ignore word hai AUR koi file attach nahi hai
                     if any(word in text_content for word in ignore_words) and not log.document:
                         if f"Attempt {attempt+1}" not in status_msg.text:
                             await status_msg.edit(f"⏳ **Fetching Data... (Attempt {attempt+1})**")
                         continue 
                     
-                    # 2. SUCCESS CHECK: File mil gayi YA Text mein '{' hai
+                    # 2. SUCCESS CHECK
                     if log.document or "{" in text_content or "success" in text_content:
                         target_response = log
                         break
                     
-                    # 3. Fallback: Agar normal text result hai
+                    # 3. Fallback
                     target_response = log
                     break
                     
@@ -166,20 +178,21 @@ async def process_request(client, message):
             if target_response: break
 
         if not target_response:
-            await status_msg.edit("❌ **Timeout:** Target bot ne final result nahi diya.")
+            # UPDATED: Timeout ki jagah No Data Found
+            await status_msg.edit("❌ **No Data Found**")
             return
 
-        # --- DATA EXTRACTION (File Handling Added) ---
+        # --- DATA EXTRACTION & CLEANING ---
         raw_text = ""
         
-        # Scenario A: Result is a FILE (Download -> Read -> Delete)
+        # Scenario A: Result is a FILE
         if target_response.document:
             await status_msg.edit("📂 **Downloading Result File...**")
             try:
                 file_path = await client.download_media(target_response)
                 with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
                     raw_text = f.read()
-                os.remove(file_path) # Cleanup
+                os.remove(file_path)
             except Exception as e:
                 await status_msg.edit(f"❌ **File Error:** {e}")
                 return
@@ -194,23 +207,22 @@ async def process_request(client, message):
             await status_msg.edit("❌ **No Data Found**")
             return
 
+        # --- REMOVE UNWANTED TEXT ---
+        raw_text = raw_text.replace("⚡ Designed & Powered by @DuXxZx_info", "")
+        raw_text = raw_text.replace("@DuXxZx_info", "")
+        
         # --- SMART JSON PARSING ---
-        final_output = raw_text # Fallback
+        final_output = raw_text 
         
         try:
-            # Clean Markdown code blocks
             clean_text = raw_text.replace("```json", "").replace("```", "").strip()
-            
-            # Find JSON object
             json_match = re.search(r'\{.*\}', clean_text, re.DOTALL)
             
             if json_match:
                 parsed_data = json.loads(json_match.group(0))
                 
-                # Extract 'results' from 'data' (Based on your screenshot)
                 results = []
                 if "data" in parsed_data:
-                    # Check if data is list or dict
                     data_part = parsed_data["data"]
                     if isinstance(data_part, list) and len(data_part) > 0:
                         if "results" in data_part[0]:
@@ -228,17 +240,14 @@ async def process_request(client, message):
                     results = parsed_data
                 
                 final_output = json.dumps(results, indent=4, ensure_ascii=False)
-        except Exception as e:
-            # If parsing fails, just show the raw text
-            logger.error(f"Parsing error: {e}")
+        except Exception:
             pass
 
-        # --- SENDING RESULT (Chunking) ---
+        # --- SENDING RESULT ---
         formatted_msg = f"```json\n{final_output}\n```\n\n{NEW_FOOTER}"
         
         await status_msg.delete()
 
-        # Split message if too long (>4000 chars)
         if len(formatted_msg) > 4000:
             chunks = [formatted_msg[i:i+4000] for i in range(0, len(formatted_msg), 4000)]
             for chunk in chunks:
@@ -246,7 +255,6 @@ async def process_request(client, message):
                 await asyncio.sleep(1) 
         else:
             msg = await message.reply_text(formatted_msg)
-            # Auto delete logic
             await asyncio.sleep(60)
             try: await msg.delete()
             except: pass
