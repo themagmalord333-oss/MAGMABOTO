@@ -39,11 +39,8 @@ TARGET_BOT = "Random_insight69_bot"
 NEW_FOOTER = "⚡ Designed & Powered by @MAGMAxRICH"
 
 # --- 🔐 SECURITY SETTINGS ---
-# Jis group me bot command accept karega
 ALLOWED_GROUPS = [-1003387459132] 
 
-# FSUB (Force Subscribe) List
-# Note: Private Channel ID (-100...) use kiya hai. Bot ko waha ADMIN bana dena.
 FSUB_CONFIG = [
     {"chat_id": -1003387459132, "link": "https://t.me/+wZ9rDQC5fkYxOWJh"},
     {"chat_id": "Anysnapsupport", "link": "https://t.me/Anysnapsupport"}
@@ -56,7 +53,6 @@ async def check_user_joined(client, user_id):
     missing = False
     for ch in FSUB_CONFIG:
         try:
-            # chat_id can be int (for private) or str (for username)
             member = await client.get_chat_member(ch["chat_id"], user_id)
             if member.status in [enums.ChatMemberStatus.LEFT, enums.ChatMemberStatus.BANNED]:
                 missing = True
@@ -65,7 +61,6 @@ async def check_user_joined(client, user_id):
             missing = True
             break
         except (PeerIdInvalid, ChannelInvalid, KeyError):
-            # Agar bot admin nahi hai ya ID galat hai to ignore karke pass kar dete hain (Risk handling)
             pass
         except Exception:
             pass 
@@ -75,9 +70,7 @@ async def check_user_joined(client, user_id):
 @app.on_message(filters.command(["start", "help", "menu"], prefixes="/") & (filters.private | filters.chat(ALLOWED_GROUPS)))
 async def show_dashboard(client, message):
     try:
-        # Fsub Logic in Dashboard
         if not await check_user_joined(client, message.from_user.id):
-            # Buttons generate karna based on config
             buttons_text = ""
             for ch in FSUB_CONFIG:
                 buttons_text += f"➡️ **[Join Channel]({ch['link']})**\n"
@@ -111,7 +104,6 @@ async def show_dashboard(client, message):
 async def process_request(client, message):
 
     try:
-        # 1. Permission Check
         if not await check_user_joined(client, message.from_user.id):
             buttons_text = ""
             for ch in FSUB_CONFIG:
@@ -150,7 +142,6 @@ async def process_request(client, message):
 
                     text_content = (log.text or log.caption or "").lower()
                     
-                    # 1. IGNORE LIST
                     ignore_words = [
                         "wait", "processing", "searching", "scanning", 
                         "generating", "loading", "checking", 
@@ -163,12 +154,10 @@ async def process_request(client, message):
                             await status_msg.edit(f"⏳ **Fetching Data... (Attempt {attempt+1})**")
                         continue 
                     
-                    # 2. SUCCESS CHECK
                     if log.document or "{" in text_content or "success" in text_content:
                         target_response = log
                         break
                     
-                    # 3. Fallback
                     target_response = log
                     break
                     
@@ -178,14 +167,11 @@ async def process_request(client, message):
             if target_response: break
 
         if not target_response:
-            # UPDATED: Timeout ki jagah No Data Found
             await status_msg.edit("❌ **No Data Found**")
             return
 
-        # --- DATA EXTRACTION & CLEANING ---
+        # --- DATA HANDLING ---
         raw_text = ""
-        
-        # Scenario A: Result is a FILE
         if target_response.document:
             await status_msg.edit("📂 **Downloading Result File...**")
             try:
@@ -196,8 +182,6 @@ async def process_request(client, message):
             except Exception as e:
                 await status_msg.edit(f"❌ **File Error:** {e}")
                 return
-                
-        # Scenario B: Result is TEXT or CAPTION
         elif target_response.text:
             raw_text = target_response.text
         elif target_response.caption:
@@ -207,20 +191,24 @@ async def process_request(client, message):
             await status_msg.edit("❌ **No Data Found**")
             return
 
-        # --- REMOVE UNWANTED TEXT ---
+        # --- 🔥 AGGRESSIVE CLEANING (UPDATED) ---
+        # 1. Remove escaped version (Slash wala)
+        raw_text = raw_text.replace(r"⚡ Designed & Powered by @DuXxZx\_info", "")
+        # 2. Remove normal version
         raw_text = raw_text.replace("⚡ Designed & Powered by @DuXxZx_info", "")
-        raw_text = raw_text.replace("@DuXxZx_info", "")
-        
-        # --- SMART JSON PARSING ---
+        # 3. Remove just the username (Backup)
+        raw_text = raw_text.replace(r"@DuXxZx\_info", "").replace("@DuXxZx_info", "")
+        # 4. Remove empty separator lines if left behind
+        raw_text = raw_text.replace("====================\n\n", "====================\n")
+
+        # JSON Parsing
         final_output = raw_text 
-        
         try:
             clean_text = raw_text.replace("```json", "").replace("```", "").strip()
             json_match = re.search(r'\{.*\}', clean_text, re.DOTALL)
             
             if json_match:
                 parsed_data = json.loads(json_match.group(0))
-                
                 results = []
                 if "data" in parsed_data:
                     data_part = parsed_data["data"]
@@ -243,21 +231,29 @@ async def process_request(client, message):
         except Exception:
             pass
 
-        # --- SENDING RESULT ---
+        # --- SENDING RESULT & AUTO DELETE ---
         formatted_msg = f"```json\n{final_output}\n```\n\n{NEW_FOOTER}"
-        
         await status_msg.delete()
+
+        sent_messages_list = [] 
 
         if len(formatted_msg) > 4000:
             chunks = [formatted_msg[i:i+4000] for i in range(0, len(formatted_msg), 4000)]
             for chunk in chunks:
-                await message.reply_text(chunk)
+                msg = await message.reply_text(chunk)
+                sent_messages_list.append(msg)
                 await asyncio.sleep(1) 
         else:
             msg = await message.reply_text(formatted_msg)
-            await asyncio.sleep(60)
-            try: await msg.delete()
-            except: pass
+            sent_messages_list.append(msg)
+
+        # ⏳ AUTO DELETE (60s)
+        await asyncio.sleep(60)
+        for m in sent_messages_list:
+            try:
+                await m.delete()
+            except Exception:
+                pass
 
     except Exception as e:
         try:
