@@ -1,4 +1,4 @@
-import os
+Import os
 import asyncio
 import json
 import logging
@@ -32,18 +32,18 @@ def keep_alive():
 API_ID = 37314366
 API_HASH = "bd4c934697e7e91942ac911a5a287b46"
 
-# --- 🔐 NEW SESSION STRING ---
-SESSION_STRING = "BQI5Xz4ASfzypOgrMRV3KOAURi3vOstv3Lsgw2OCyTVS1OUxF288qtA55BP6oiRZ60Dp43i1TIDGXZXVJ71__uGWDhLf9Ic21YoxYASSlUavNlfezamNRrNNdcEr6gcU9oxy2YUNUgK3r1ugR_gv0VSvlKn39nehnw5BKQ-mnVAhVbcayb_8YW8o5NpGA7jIEalfnH3-aUmFYk2mvEwOnx8WWixpPOfkVb8gWx7F2DVcGCgTq-jejGlv5aopkqb-QrFIFDM2Y4z-qrA6GoTpv1oQJ_KTjX3NKb-i36Uw1zgBMY_JPi2qjK8_iVTaepFTFhBDVnZ2jAUbGMcjh9BJW1oAAKcLRgAAAAH99e3RAA"
+# SESSION STRING
+SESSION_STRING = "BQI5Xz4ATohe7TzEthBJV163cxqpZqg_Za3jR19G_o9TwJ3_uYacTCM6VUGOTvcLGEeM2RtMUuacEfZ7GteCqpAbvkznZ-VPVbYm93KIpWl0m25xpAmMJgfP6v-B4UJeswwS9F8vTyRB2FfGkXfk9oGcxo_RQy1MdABUnn6QUsf91rKvmmwXgTiqqc8zCgm-8amZdmt0eVJh90IN9KX_nuNxiZAYR5fmp057aDBYarvKeNDctusJWBXF50Xr6BIkZDe3PBkLe33BQLwYEeeGesxrxkdom5eBuC3NESlDu0AExdF1Sy270Q0DS9qdGzLYmJVqscGg-GwjLjACCCFOaskdcJH1zAAAAAGc59H6AA"
 
 TARGET_BOT = "Random_insight69_bot"
-NEW_FOOTER = "⚡ Designed & Powered by @Xldaredevil"
+NEW_FOOTER = "⚡ Designed & Powered by @MAGMAxRICH"
 
 # --- 🔐 SECURITY SETTINGS ---
-ALLOWED_GROUPS = [-1003797378635] 
+ALLOWED_GROUPS = [-1003387459132] 
 
 FSUB_CONFIG = [
-    {"chat_id": -1003797378635, "link": "https://t.me/+GOPNq4E5vONlN2Jl"},  # Group
-    {"chat_id": "Daredevilxlhub", "link": "https://t.me/Daredevilxlhub"}    # Channel
+    {"chat_id": -1003387459132, "link": "https://t.me/+wZ9rDQC5fkYxOWJh"},
+    {"chat_id": "Anysnapsupport", "link": "https://t.me/Anysnapsupport"}
 ]
 
 app = Client("anysnap_secure_bot", api_id=API_ID, api_hash=API_HASH, session_string=SESSION_STRING)
@@ -86,14 +86,14 @@ async def show_dashboard(client, message):
         text = (
             "📖 **ANYSNAP BOT DASHBOARD**\n"
             "━━━━━━━━━━━━━━━━━━\n"
-            "📢 **Channel:** [Join Here](https://t.me/Daredevilxlhub)\n"
-            "👥 **Group:** [Join Here](https://t.me/+GOPNq4E5vONlN2Jl)\n"
+            "📢 **Updates:** [Join Here](https://t.me/+wZ9rDQC5fkYxOWJh)\n"
+            "👥 **Support:** [Join Here](https://t.me/Anysnapsupport)\n"
             "━━━━━━━━━━━━━━━━━━\n\n"
             "🔍 **Lookup Services:**\n"
             "📱 `/num [number]`\n🚗 `/vehicle [plate]`\n🆔 `/aadhar [uid]`\n"
             "👨‍👩‍👧‍👦 `/familyinfo [uid]`\n🔗 `/vnum [plate]`\n💸 `/fam [id]`\n📨 `/sms [number]`\n\n"
             "━━━━━━━━━━━━━━━━━━\n"
-            "⚡ **Designed & Powered by @Xldaredevil**"
+            "⚡ **Designed & Powered by @MAGMAxRICH**"
         )
         await message.reply_text(text, disable_web_page_preview=True)
     except Exception as e:
@@ -191,7 +191,7 @@ async def process_request(client, message):
             await status_msg.edit("❌ **No Data Found**")
             return
 
-        # --- 🔥 AGGRESSIVE CLEANING ---
+        # --- 🔥 AGGRESSIVE CLEANING (UPDATED) ---
         # 1. Remove escaped version (Slash wala)
         raw_text = raw_text.replace(r"⚡ Designed & Powered by @DuXxZx\_info", "")
         # 2. Remove normal version
@@ -272,11 +272,7 @@ async def start_bot():
     await app.stop()
 
 if __name__ == "__main__":
-    # --- FIX FOR PYTHON 3.10+ AND RENDER ---
-    try:
-        loop = asyncio.get_event_loop()
-    except RuntimeError:
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-    
+    loop = asyncio.get_event_loop()
     loop.run_until_complete(start_bot())
+
+
