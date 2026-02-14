@@ -32,18 +32,18 @@ def keep_alive():
 API_ID = 37314366
 API_HASH = "bd4c934697e7e91942ac911a5a287b46"
 
-# SESSION STRING
-SESSION_STRING = "BQI5Xz4ATohe7TzEthBJV163cxqpZqg_Za3jR19G_o9TwJ3_uYacTCM6VUGOTvcLGEeM2RtMUuacEfZ7GteCqpAbvkznZ-VPVbYm93KIpWl0m25xpAmMJgfP6v-B4UJeswwS9F8vTyRB2FfGkXfk9oGcxo_RQy1MdABUnn6QUsf91rKvmmwXgTiqqc8zCgm-8amZdmt0eVJh90IN9KX_nuNxiZAYR5fmp057aDBYarvKeNDctusJWBXF50Xr6BIkZDe3PBkLe33BQLwYEeeGesxrxkdom5eBuC3NESlDu0AExdF1Sy270Q0DS9qdGzLYmJVqscGg-GwjLjACCCFOaskdcJH1zAAAAAGc59H6AA"
+# --- 🔐 NEW SESSION STRING ---
+SESSION_STRING = "BQI5Xz4ASfzypOgrMRV3KOAURi3vOstv3Lsgw2OCyTVS1OUxF288qtA55BP6oiRZ60Dp43i1TIDGXZXVJ71__uGWDhLf9Ic21YoxYASSlUavNlfezamNRrNNdcEr6gcU9oxy2YUNUgK3r1ugR_gv0VSvlKn39nehnw5BKQ-mnVAhVbcayb_8YW8o5NpGA7jIEalfnH3-aUmFYk2mvEwOnx8WWixpPOfkVb8gWx7F2DVcGCgTq-jejGlv5aopkqb-QrFIFDM2Y4z-qrA6GoTpv1oQJ_KTjX3NKb-i36Uw1zgBMY_JPi2qjK8_iVTaepFTFhBDVnZ2jAUbGMcjh9BJW1oAAKcLRgAAAAH99e3RAA"
 
 TARGET_BOT = "Random_insight69_bot"
-NEW_FOOTER = "⚡ Designed & Powered by @MAGMAxRICH"
+NEW_FOOTER = "⚡ Designed & Powered by @Xldaredevil"
 
 # --- 🔐 SECURITY SETTINGS ---
-ALLOWED_GROUPS = [-1003387459132] 
+ALLOWED_GROUPS = [-1003797378635] 
 
 FSUB_CONFIG = [
-    {"chat_id": -1003387459132, "link": "https://t.me/+wZ9rDQC5fkYxOWJh"},
-    {"chat_id": "Anysnapsupport", "link": "https://t.me/Anysnapsupport"}
+    {"chat_id": -1003797378635, "link": "https://t.me/+GOPNq4E5vONlN2Jl"},  # Group
+    {"chat_id": "Daredevilxlhub", "link": "https://t.me/Daredevilxlhub"}    # Channel
 ]
 
 app = Client("anysnap_secure_bot", api_id=API_ID, api_hash=API_HASH, session_string=SESSION_STRING)
@@ -74,7 +74,7 @@ async def show_dashboard(client, message):
             buttons_text = ""
             for ch in FSUB_CONFIG:
                 buttons_text += f"➡️ **[Join Channel]({ch['link']})**\n"
-            
+
             return await message.reply_text(
                 "🚫 **Access Denied!**\n\n"
                 "Bot use karne ke liye pehle niche diye gaye channels join karein:\n\n"
@@ -86,14 +86,14 @@ async def show_dashboard(client, message):
         text = (
             "📖 **ANYSNAP BOT DASHBOARD**\n"
             "━━━━━━━━━━━━━━━━━━\n"
-            "📢 **Updates:** [Join Here](https://t.me/+wZ9rDQC5fkYxOWJh)\n"
-            "👥 **Support:** [Join Here](https://t.me/Anysnapsupport)\n"
+            "📢 **Channel:** [Join Here](https://t.me/Daredevilxlhub)\n"
+            "👥 **Group:** [Join Here](https://t.me/+GOPNq4E5vONlN2Jl)\n"
             "━━━━━━━━━━━━━━━━━━\n\n"
             "🔍 **Lookup Services:**\n"
             "📱 `/num [number]`\n🚗 `/vehicle [plate]`\n🆔 `/aadhar [uid]`\n"
             "👨‍👩‍👧‍👦 `/familyinfo [uid]`\n🔗 `/vnum [plate]`\n💸 `/fam [id]`\n📨 `/sms [number]`\n\n"
             "━━━━━━━━━━━━━━━━━━\n"
-            "⚡ **Designed & Powered by @MAGMAxRICH**"
+            "⚡ **Designed & Powered by @Xldaredevil**"
         )
         await message.reply_text(text, disable_web_page_preview=True)
     except Exception as e:
@@ -141,7 +141,7 @@ async def process_request(client, message):
                     if log.id == sent_req.id: continue
 
                     text_content = (log.text or log.caption or "").lower()
-                    
+
                     ignore_words = [
                         "wait", "processing", "searching", "scanning", 
                         "generating", "loading", "checking", 
@@ -153,17 +153,17 @@ async def process_request(client, message):
                         if f"Attempt {attempt+1}" not in status_msg.text:
                             await status_msg.edit(f"⏳ **Fetching Data... (Attempt {attempt+1})**")
                         continue 
-                    
+
                     if log.document or "{" in text_content or "success" in text_content:
                         target_response = log
                         break
-                    
+
                     target_response = log
                     break
-                    
+
             except Exception as e:
                 logger.error(f"Error fetching history: {e}")
-            
+
             if target_response: break
 
         if not target_response:
@@ -191,7 +191,7 @@ async def process_request(client, message):
             await status_msg.edit("❌ **No Data Found**")
             return
 
-        # --- 🔥 AGGRESSIVE CLEANING (UPDATED) ---
+        # --- 🔥 AGGRESSIVE CLEANING ---
         # 1. Remove escaped version (Slash wala)
         raw_text = raw_text.replace(r"⚡ Designed & Powered by @DuXxZx\_info", "")
         # 2. Remove normal version
@@ -206,7 +206,7 @@ async def process_request(client, message):
         try:
             clean_text = raw_text.replace("```json", "").replace("```", "").strip()
             json_match = re.search(r'\{.*\}', clean_text, re.DOTALL)
-            
+
             if json_match:
                 parsed_data = json.loads(json_match.group(0))
                 results = []
@@ -226,7 +226,7 @@ async def process_request(client, message):
                     results = parsed_data["results"]
                 else:
                     results = parsed_data
-                
+
                 final_output = json.dumps(results, indent=4, ensure_ascii=False)
         except Exception:
             pass
