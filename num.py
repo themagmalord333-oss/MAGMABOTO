@@ -1,7 +1,17 @@
-Import os
+import os
 import asyncio
-import json
 import logging
+
+# --- ⚠️ CRITICAL FIX FOR PYTHON 3.10+ / 3.14 (MUST BE AT THE TOP) ---
+# This creates an event loop before Pyrogram tries to find one during import.
+try:
+    asyncio.get_event_loop()
+except RuntimeError:
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+
+# --- NOW IMPORT EVERYTHING ELSE ---
+import json
 import re
 from threading import Thread
 from flask import Flask
@@ -32,13 +42,15 @@ def keep_alive():
 API_ID = 37314366
 API_HASH = "bd4c934697e7e91942ac911a5a287b46"
 
-# SESSION STRING
-SESSION_STRING = "BQI5Xz4ATohe7TzEthBJV163cxqpZqg_Za3jR19G_o9TwJ3_uYacTCM6VUGOTvcLGEeM2RtMUuacEfZ7GteCqpAbvkznZ-VPVbYm93KIpWl0m25xpAmMJgfP6v-B4UJeswwS9F8vTyRB2FfGkXfk9oGcxo_RQy1MdABUnn6QUsf91rKvmmwXgTiqqc8zCgm-8amZdmt0eVJh90IN9KX_nuNxiZAYR5fmp057aDBYarvKeNDctusJWBXF50Xr6BIkZDe3PBkLe33BQLwYEeeGesxrxkdom5eBuC3NESlDu0AExdF1Sy270Q0DS9qdGzLYmJVqscGg-GwjLjACCCFOaskdcJH1zAAAAAGc59H6AA"
+# --- 🔐 SESSION STRING (Latest Working String Kept) ---
+SESSION_STRING = "BQI5Xz4ASfzypOgrMRV3KOAURi3vOstv3Lsgw2OCyTVS1OUxF288qtA55BP6oiRZ60Dp43i1TIDGXZXVJ71__uGWDhLf9Ic21YoxYASSlUavNlfezamNRrNNdcEr6gcU9oxy2YUNUgK3r1ugR_gv0VSvlKn39nehnw5BKQ-mnVAhVbcayb_8YW8o5NpGA7jIEalfnH3-aUmFYk2mvEwOnx8WWixpPOfkVb8gWx7F2DVcGCgTq-jejGlv5aopkqb-QrFIFDM2Y4z-qrA6GoTpv1oQJ_KTjX3NKb-i36Uw1zgBMY_JPi2qjK8_iVTaepFTFhBDVnZ2jAUbGMcjh9BJW1oAAKcLRgAAAAH99e3RAA"
 
 TARGET_BOT = "Random_insight69_bot"
+
+# --- 🔙 RESTORED CREDIT ---
 NEW_FOOTER = "⚡ Designed & Powered by @MAGMAxRICH"
 
-# --- 🔐 SECURITY SETTINGS ---
+# --- 🔐 RESTORED SECURITY SETTINGS ---
 ALLOWED_GROUPS = [-1003387459132] 
 
 FSUB_CONFIG = [
@@ -83,6 +95,7 @@ async def show_dashboard(client, message):
                 disable_web_page_preview=True
             )
 
+        # --- RESTORED DASHBOARD LINKS ---
         text = (
             "📖 **ANYSNAP BOT DASHBOARD**\n"
             "━━━━━━━━━━━━━━━━━━\n"
@@ -191,7 +204,7 @@ async def process_request(client, message):
             await status_msg.edit("❌ **No Data Found**")
             return
 
-        # --- 🔥 AGGRESSIVE CLEANING (UPDATED) ---
+        # --- 🔥 AGGRESSIVE CLEANING ---
         # 1. Remove escaped version (Slash wala)
         raw_text = raw_text.replace(r"⚡ Designed & Powered by @DuXxZx\_info", "")
         # 2. Remove normal version
@@ -272,7 +285,6 @@ async def start_bot():
     await app.stop()
 
 if __name__ == "__main__":
+    # The loop is already created at the top, so we just retrieve it
     loop = asyncio.get_event_loop()
     loop.run_until_complete(start_bot())
-
-
